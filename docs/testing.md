@@ -62,3 +62,8 @@ Follow-up checks cover ambiguous upload/create responses, immutable draft mutati
 The advisory policy keeps the unresolved Picomatch root advisory visible. The complete audit still reports development-tool-chain findings; see [dependency-security.md](dependency-security.md). Runtime findings remain separate.
 
 The final narrow regressions also cover same-route query changes during failed missing-profile logout, a deferred edited-draft reconciliation with rapid duplicate submits, image-only reconciliation hydration, and concurrent publication versus cleanup. These checks supplement the earlier review; they do not claim a third independent review or a live visual pass.
+
+
+## Hosted preview authentication adapter
+
+The port gateway removes Authorization headers. The opt-in same-origin preview route forwards the token in a separate header and restores Authorization only to fixed loopback Supabase port 54321. Server APIs still validate the token with Supabase. The route is unavailable unless explicitly configured; production direct Supabase access remains the default. New targeted tests cover opt-in behavior, target/path limits, request size, header handling, and token-header behavior. After this small preview repair, earlier full-suite/build/database/CI results remain attributed to the prior revision; only new and previously blocked preview checks are rerun.
