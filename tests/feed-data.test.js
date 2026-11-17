@@ -50,7 +50,10 @@ describe('feed network bounds and authoritative likes', () => {
   it('reconciles a post committed before its create response was lost', async () => {
     const insert = { insert: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), single: vi.fn().mockReturnThis(), abortSignal: vi.fn().mockResolvedValue({ data: null, error: { message: 'response lost' } }) };
     const read = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockReturnThis(), abortSignal: vi.fn().mockResolvedValue({ data: { id: 'stable', content: 'Original', image_path: 'owner/stable.png' }, error: null }) };
-    const client = { from: vi.fn().mockReturnValueOnce(insert).mockReturnValueOnce(read) };
-    await expect(createPost(client, { id: 'stable', userId: 'owner', content: 'Original', imagePath: 'owner/stable.png' })).resolves.toMatchObject({ id: 'stable', content: 'Original' });
+    const client = {
+      from: vi.fn().mockReturnValueOnce(insert).mockReturnValueOnce(read),
+      storage: { from: vi.fn(() => ({ getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://images.test/owner/stable.png' } })) })) },
+    };
+    await expect(createPost(client, { id: 'stable', userId: 'owner', content: 'Original', imagePath: 'owner/stable.png' })).resolves.toMatchObject({ id: 'stable', content: 'Original', image_public_url: 'https://images.test/owner/stable.png' });
   });
 });

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 
 import { localSupabaseConfig } from './local-supabase.mjs';
@@ -305,4 +306,27 @@ const grants = execFileSync('docker',['exec','-i','supabase_db_nexawork','psql',
     and has_function_privilege('anon',p.oid,'execute');`,encoding:'utf8',stdio:['pipe','pipe','pipe']
 }).trim();
 assert.equal(grants,'0','anonymous callers have no effective restricted-RPC execution grant');
+// Concurrency regression: policy visibility alone cannot see an uncommitted post.
+// The storage FK must serialize a concurrent delete and reject it after publication.
+const racePath=`${studentA.id}/${crypto.randomUUID()}.png`;
+expectOk((await studentA.supabase.storage.from('community-images').upload(racePath,image,{contentType:'image/png'})).error,'upload concurrent-reference fixture');
+const racePost=crypto.randomUUID();
+const lockKey=Math.floor(Math.random()*1000000000)+1;
+const psqlArgs=['exec','-i','supabase_db_nexawork','psql','-U','postgres','-d','postgres','-At','-v','ON_ERROR_STOP=1'];
+const runPsql=(sql)=>promisify(execFile)('docker',[...psqlArgs,'-c',sql],{timeout:15000,maxBuffer:1024*1024});
+const publishing=runPsql(`begin; insert into public.community_posts(id,user_id,content,image_path) values ('${racePost}','${studentA.id}','','${racePath}'); select pg_advisory_xact_lock(${lockKey}); select pg_sleep(3); commit;`);
+let publishingReady=false;
+for(let attempt=0;attempt<30;attempt++) {
+  const {stdout}=await runPsql(`select exists(select 1 from pg_locks where locktype='advisory' and objid=${lockKey} and granted);`);
+  if(stdout.trim()==='t'){publishingReady=true;break;}
+  await new Promise(resolve=>setTimeout(resolve,50));
+}
+assert.ok(publishingReady,'post transaction reaches its uncommitted-reference checkpoint');
+let deletionError;
+try {await runPsql(`begin; set local storage.allow_delete_query='true'; delete from storage.objects where bucket_id='community-images' and name='${racePath}'; commit;`);} catch(error){deletionError=error;}
+await publishing;
+assert.ok(deletionError?.stderr?.includes('community_post_image_object_fk'),'concurrent cleanup cannot delete an image referenced by an in-flight post');
+expectOk((await studentA.supabase.storage.from('community-images').download(racePath)).error,'concurrently referenced image remains retrievable');
+expectOk((await studentA.supabase.from('community_posts').delete().eq('id',racePost)).error,'remove concurrent-reference fixture');
+expectOk((await studentA.supabase.storage.from('community-images').remove([racePath])).error,'cleanup no-longer-referenced image');
 console.log('Local database integration checks passed.');

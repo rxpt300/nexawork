@@ -54,6 +54,7 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
   const [retainedUpload, setRetainedUpload] = useState(null);
   const postsRef = useRef([]);
   const postMutation = useRef(null);
+  const publishInFlight = useRef(false);
   const commentMutations = useRef(new Map());
 
   useEffect(() => {
@@ -110,39 +111,44 @@ export default function ProfessionalFeed({ heading = 'Your professional feed', d
 
   const publishPost = async ({ content, image }) => {
     if (!user || !client) return { error: 'Sign in to share an update.' };
-    const nextPayloadKey = payloadKey(content, image);
-    const earlier = postMutation.current;
-    if (earlier && earlier.payloadKey !== nextPayloadKey) {
-      try {
-        const saved = await fetchPostById(client, earlier.id);
-        if (saved) {
-          setPosts((current) => uniqueById([{ ...withCommentState(saved), author: profileAuthor(profile) }, ...current]));
-          postMutation.current = null;
-          return { error: 'Your earlier update was published. Your edited draft is still here; post it again to create a new update.' };
-        }
-      } catch {
-        return { error: 'We could not confirm your earlier update. Its attachment was retained.' };
-      }
-      postMutation.current = null;
-      if (earlier.upload) {
-        setRetainedUpload(earlier.upload);
-        return { error: 'The earlier update was not published, but its image needs cleanup. Retry cleanup before posting this edited draft.' };
-      }
-    }
-    const mutation = postMutation.current || { id: createMutationId(), payloadKey: nextPayloadKey, upload: null };
-    postMutation.current = mutation;
+    if (publishInFlight.current) return { error: 'Your update is already being checked. Please wait.' };
+    publishInFlight.current = true;
     setSubmitting(true);
     try {
-      if (image && !mutation.upload) mutation.upload = createCommunityImageCandidate(user.id, image, mutation.id);
-      if (image && !mutation.upload.confirmed) mutation.upload = await uploadCommunityImage(client, image, mutation.upload);
-      const savedPost = await createPost(client, { id: mutation.id, userId: user.id, content, imagePath: mutation.upload?.path, imageUrl: mutation.upload?.publicUrl });
-      setPosts((current) => uniqueById([{ ...withCommentState(savedPost), image_public_url: mutation.upload?.publicUrl || null, author: profileAuthor(profile) }, ...current]));
-      postMutation.current = null;
-      return {};
-    } catch (publishError) {
-      return { error: publishError.message || 'Unable to publish your update. Your draft is still here.' };
+      const nextPayloadKey = payloadKey(content, image);
+      const earlier = postMutation.current;
+      if (earlier && earlier.payloadKey !== nextPayloadKey) {
+        try {
+          const saved = await fetchPostById(client, earlier.id);
+          if (saved) {
+            setPosts((current) => uniqueById([{ ...withCommentState(saved), author: profileAuthor(profile) }, ...current]));
+            postMutation.current = null;
+            return { error: 'Your earlier update was published. Your edited draft is still here; post it again to create a new update.' };
+          }
+        } catch {
+          return { error: 'We could not confirm your earlier update. Its attachment was retained.' };
+        }
+        postMutation.current = null;
+        if (earlier.upload) {
+          setRetainedUpload(earlier.upload);
+          return { error: 'The earlier update was not published, but its image needs cleanup. Retry cleanup before posting this edited draft.' };
+        }
+      }
+      const mutation = postMutation.current || { id: createMutationId(), payloadKey: nextPayloadKey, upload: null };
+      postMutation.current = mutation;
+      try {
+        if (image && !mutation.upload) mutation.upload = createCommunityImageCandidate(user.id, image, mutation.id);
+        if (image && !mutation.upload.confirmed) mutation.upload = await uploadCommunityImage(client, image, mutation.upload);
+        const savedPost = await createPost(client, { id: mutation.id, userId: user.id, content, imagePath: mutation.upload?.path, imageUrl: mutation.upload?.publicUrl });
+        setPosts((current) => uniqueById([{ ...withCommentState(savedPost), image_public_url: mutation.upload?.publicUrl || null, author: profileAuthor(profile) }, ...current]));
+        postMutation.current = null;
+        return {};
+      } catch (publishError) {
+        return { error: publishError.message || 'Unable to publish your update. Your draft is still here.' };
+      }
     } finally {
       setSubmitting(false);
+      publishInFlight.current = false;
     }
   };
 
