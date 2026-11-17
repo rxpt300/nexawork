@@ -44,6 +44,7 @@ For resume parsing, install `scripts/requirements.txt` in a Python virtual envir
 ## Verification
 
 ```bash
+npm run audit:dependencies
 npm run lint
 npm test
 npm run build
@@ -69,6 +70,7 @@ Database checks require the local Supabase stack and synthetic fixtures. Browser
 - [Architecture and boundaries](docs/architecture.md)
 - [Database setup and migration safety](docs/database.md)
 - [Testing and evidence limits](docs/testing.md)
+- [Development dependency advisory policy](docs/dependency-security.md)
 - [Honest portfolio presentation](docs/resume.md)
 
 ## Original contributors

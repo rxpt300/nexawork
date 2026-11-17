@@ -6,6 +6,7 @@ Use Node 24.22.2, npm 11.19.1, and Docker.
 
 ```bash
 npm ci
+npm run audit:dependencies
 npm run lint
 npm test
 npm run build
@@ -52,3 +53,10 @@ During implementation, the production build, focused unit tests, and local Supab
 Shared Chrome CDP access was unavailable during design work. Static design HTML passed structural validation and numerical palette checks, but that is not browser evidence. Until a live browser check runs, screen layouts, keyboard interaction, computed styles, console errors, and state screenshots remain unverified. Do not claim a complete visual/accessibility pass.
 
 Hosted schema adoption, actual email delivery, hosted storage configuration, real external AI responses, and real payment processing remain outside verified coverage. Quizzes remain client-scored practice, not independent certification.
+
+
+## Review repair coverage
+
+Follow-up checks cover ambiguous upload/create responses, immutable draft mutation identities, published-image cleanup protection, initial-comment-load retries, numeric salary filters, auth recovery, and bounded profile-image saves. The database rejects new image references that do not name an existing owned object. Legacy image URLs remain readable; new display URLs derive from validated storage paths. Anonymous roles have no effective execution grant on the restricted RPCs. Null practice IDs cannot alter badges.
+
+The advisory policy keeps the unresolved Picomatch root advisory visible. The complete audit still reports development-tool-chain findings; see [dependency-security.md](dependency-security.md). Runtime findings remain separate.
